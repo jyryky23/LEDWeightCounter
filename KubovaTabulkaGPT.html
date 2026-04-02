@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Bezpečnost LED stěny</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui;
+            background: #0f172a;
+            color: white;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .wrapper {
+
+            position: relative;
+            z-index: 2;
+
+            max-width: 700px;
+            margin: auto;
+            margin-top: 60px;
+
+            padding: 35px;
+
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(18px);
+
+            border-radius: 16px;
+
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .row {
+
+            display: grid;
+            grid-template-columns: 200px 1fr 1.5fr;
+
+            gap: 12px;
+
+            align-items: center;
+
+            margin-bottom: 12px;
+        }
+
+        label {
+            opacity: 0.85;
+        }
+
+        input {
+
+            width: 100%;
+            padding: 8px;
+
+            border: none;
+            border-radius: 6px;
+
+            background: rgba(255, 255, 255, 0.15);
+
+            color: white;
+            font-size: 14px;
+
+        }
+
+        input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .note {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        .result {
+
+            margin-top: 25px;
+            padding: 18px;
+
+            background: rgba(0, 0, 0, 0.35);
+
+            border-radius: 10px;
+
+            line-height: 1.7;
+        }
+
+        .big {
+
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 10px;
+
+            color: #22c55e;
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <canvas id="bg"></canvas>
+
+    <div class="wrapper">
+
+        <h2>Výpočet bezpečnosti LED stěny</h2>
+
+        <div class="row">
+            <label>Šířka stěny m</label>
+            <input id="width" type="number" value="4" step="0.1">
+            <div class="note">Celková šířka LED stěny v metrech</div>
+        </div>
+
+        <div class="row">
+            <label>Výška stěny m</label>
+            <input id="height" type="number" value="3" step="0.1">
+            <div class="note">Celková výška LED konstrukce</div>
+        </div>
+
+        <div class="row">
+            <label>Hmotnost panelu kg</label>
+            <input id="panelWeight" type="number" value="8">
+            <div class="note">Hmotnost jednoho LED panelu (typicky 7–10 kg)</div>
+        </div>
+
+        <div class="row">
+            <label>Počet noh ks</label>
+            <input id="legs" type="number" value="2">
+            <div class="note">Kolik noh má konstrukce</div>
+        </div>
+
+        <div class="row">
+            <label>Délka nohy vzad</label>
+            <input id="legLength" type="number" value="1.5" step="0.1">
+            <div class="note">1 nebo 1,5 m</div>
+        </div>
+
+        <div class="row">
+            <label>Výkyv m/1m výšky</label>
+            <input id="swing" type="number" value="0.02" step="0.01">
+            <div class="note">Předpokládané vychýlení konstrukce na 1 m výšky min 0,03</div>
+        </div>
+
+        <div class="row">
+            <label>Rychlost větru m/s</label>
+            <input id="windSpeed" type="number" value="10">
+            <div class="note">Vánek 3-5 m/s, větrno 8-10m/s, silný vítr 12/14 m/s, nad 15m/s vichřice </div>
+        </div>
+
+        <div class="row">
+            <label>Faktor stability k</label>
+            <input id="k" type="number" value="1.5" step="0.1">
+            <div class="note">10-15 běžný průvan, 30-40 nápor, 70 snaha o shození rozlíceným dav</div>
+        </div>
+
+        <div class="row">
+            <label>Hmotnost závaží kg</label>
+            <input id="weightMass" type="number" value="25">
+            <div class="note">Hmotnost jednoho betonového závaží</div>
+        </div>
+
+
+        <div class="result" id="result"></div>
+
+    </div>
+
+
+    <script>
+
+        const inputs = document.querySelectorAll("input")
+
+        inputs.forEach(i => i.addEventListener("input", calculate))
+
+        function ceil(v) {
+            return Math.ceil(v)
+        }
+
+        function calculate() {
+
+            let width = parseFloat(widthInput())
+            let height = parseFloat(heightInput())
+            let panelWeight = parseFloat(val("panelWeight"))
+            let legs = parseFloat(val("legs"))
+            let legLength = parseFloat(val("legLength"))
+            let swing = parseFloat(val("swing"))
+            let windSpeed = parseFloat(val("windSpeed"))
+            let k = parseFloat(val("k"))
+            let weightMass = parseFloat(val("weightMass"))
+
+            let area = width * height
+
+            let totalWeight = (area / 0.25) * panelWeight
+
+            let tiltMoment = totalWeight * (height / 2) * swing
+
+            let windMoment = (0.081 * Math.pow(windSpeed, 2) * area) * (height / 2)
+
+            let weightsPerLeg = ceil(((tiltMoment * k) + (windMoment * 2)) / legLength / legs / weightMass)
+
+            result.innerHTML = `
+
+<b>Plocha stěny:</b> ${area.toFixed(2)} m²<br>
+<b>Celková hmotnost stěny:</b> ${totalWeight.toFixed(1)} kg<br>
+<b>Moment náklonu:</b> ${tiltMoment.toFixed(1)} kgm<br>
+<b>Moment větru:</b> ${windMoment.toFixed(1)} kgm<br>
+
+<div class="big">
+Minimální počet závaží na nohu: ${weightsPerLeg}
+</div>
+
+`
+        }
+
+        function val(id) {
+            return document.getElementById(id).value
+        }
+
+        function widthInput() {
+            return document.getElementById("width").value
+        }
+
+        function heightInput() {
+            return document.getElementById("height").value
+        }
+
+        calculate()
+
+    </script>
+
+
+    <script>
+
+        const canvas = document.getElementById("bg")
+        const ctx = canvas.getContext("2d")
+
+        canvas.width = window.innerWidth
+        canvas.height = window.innerHeight
+
+        let particles = []
+
+        for (let i = 0; i < 80; i++) {
+
+            particles.push({
+
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: (Math.random() - 0.5) * 0.6
+
+            })
+
+        }
+
+        let mouse = { x: 0, y: 0 }
+
+        window.addEventListener("mousemove", e => {
+            mouse.x = e.clientX
+            mouse.y = e.clientY
+        })
+
+        function draw() {
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            particles.forEach(p => {
+
+                p.x += p.vx
+                p.y += p.vy
+
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1
+
+                let dx = p.x - mouse.x
+                let dy = p.y - mouse.y
+
+                let dist = Math.sqrt(dx * dx + dy * dy)
+
+                if (dist < 120) {
+
+                    ctx.beginPath()
+                    ctx.moveTo(p.x, p.y)
+                    ctx.lineTo(mouse.x, mouse.y)
+                    ctx.strokeStyle = "rgba(255,255,255,0.15)"
+                    ctx.stroke()
+
+                }
+
+                ctx.beginPath()
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2)
+                ctx.fillStyle = "white"
+                ctx.fill()
+
+            })
+
+            requestAnimationFrame(draw)
+
+        }
+
+        draw()
+
+    </script>
+
+</body>
+
+</html>
